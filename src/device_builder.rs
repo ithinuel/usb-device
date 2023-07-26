@@ -37,7 +37,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 product_id: vid_pid.1,
                 usb_rev: UsbRev::Usb210,
                 device_release: 0x0010,
-                extra_lang_ids: None,
+                lang_ids: None,
                 manufacturer: None,
                 product: None,
                 serial_number: None,
@@ -108,20 +108,24 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         self
     }
 
-    /// Sets **extra** Language ID for device.
+    /// Sets Language ID for device.
     ///
-    /// Since "en_US"(0x0409) is implicitly embedded, you just need to fill other LangIDs
+    /// "en_US"(0x0409) must be part of the list
     ///
-    /// Default: (none)
-    pub fn set_extra_lang_ids(mut self, extra_lang_ids: &'a [LangID]) -> Self {
-        if extra_lang_ids.len() == 0 {
-            self.config.extra_lang_ids = None;
+    /// Default: ("en_US")
+    pub fn set_lang_ids(mut self, lang_ids: &'a [LangID]) -> Self {
+        if lang_ids.is_empty() {
+            self.config.lang_ids = None;
             return self;
         }
 
         assert!(
-            extra_lang_ids.len() < 16,
-            "Not support more than 15 extra LangIDs"
+            lang_ids.len() < 16,
+            "Not support more than 16 LangIDs"
+        );
+        assert!(
+            lang_ids.contains(&LangID::EN_US),
+            "Must contain LangID::EN_US"
         );
 
         [
@@ -135,14 +139,14 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             // do list length check only if user already specify "manufacturer", "product" or "serial_number"
             if let Some(list) = list {
                 assert!(
-                    extra_lang_ids.len() == list.len() - 1,
-                    "The length of \"extra_lang_id\" list should be one less than \"{}\" list",
+                    lang_ids.len() == list.len(),
+                    "The length of \"lang_id\" list should be equal to \"{}\" list",
                     field_name
                 )
             }
         });
 
-        self.config.extra_lang_ids = Some(extra_lang_ids);
+        self.config.lang_ids = Some(lang_ids);
 
         self
     }
@@ -166,14 +170,14 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
 
         let num_extra_langs = self
             .config
-            .extra_lang_ids
+            .lang_ids
             .as_ref()
             .map(|langs| langs.len())
             .unwrap_or(0);
 
         assert!(
-            manufacturer_ls.len() == num_extra_langs + 1,
-            "The length of \"manufacturer\" list should be one more than \"extra_lang_ids\" list",
+            manufacturer_ls.len() == num_extra_langs,
+            "The length of \"manufacturer\" list should be equal to \"lang_ids\" list",
         );
 
         self.config.manufacturer = Some(manufacturer_ls);
@@ -184,7 +188,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the product name string descriptor.
     ///
     /// the first string should always be in English, the language of rest strings
-    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    /// should be pair with what inside [.lang_ids()](Self::lang_ids)
     ///
     /// Default: (none)
     pub fn product(mut self, product_ls: &'a [&'a str]) -> Self {
@@ -198,16 +202,16 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             "Not support more than 16 \"product\"s"
         );
 
-        let num_extra_langs = self
+        let num_langs = self
             .config
-            .extra_lang_ids
+            .lang_ids
             .as_ref()
             .map(|langs| langs.len())
             .unwrap_or(0);
 
         assert!(
-            product_ls.len() == num_extra_langs + 1,
-            "The length of \"product\" list should be one more than \"extra_lang_ids\" list",
+            product_ls.len() == num_langs,
+            "The length of \"product\" list should be equal to \"lang_ids\" list",
         );
 
         self.config.product = Some(product_ls);
@@ -218,7 +222,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the serial number string descriptor.
     ///
     /// the first string should always be in English, the language of rest strings
-    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    /// should be pair with what inside [.lang_ids()](Self::lang_ids)
     ///
     /// Default: (none)
     pub fn serial_number(mut self, serial_number_ls: &'a [&'a str]) -> Self {
@@ -232,16 +236,16 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             "Not support more than 16 \"serial_number\"s"
         );
 
-        let num_extra_langs = self
+        let num_langs = self
             .config
-            .extra_lang_ids
+            .lang_ids
             .as_ref()
             .map(|langs| langs.len())
             .unwrap_or(0);
 
         assert!(
-            serial_number_ls.len() == num_extra_langs + 1,
-            "The length of \"serial_number\" list should be one more than \"extra_lang_ids\" list",
+            serial_number_ls.len() == num_langs,
+            "The length of \"serial_number\" list should be equal to \"lang_ids\" list",
         );
 
         self.config.serial_number = Some(serial_number_ls);

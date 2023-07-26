@@ -64,7 +64,7 @@ pub(crate) struct Config<'a> {
     pub product_id: u16,
     pub usb_rev: UsbRev,
     pub device_release: u16,
-    pub extra_lang_ids: Option<&'a [LangID]>,
+    pub lang_ids: Option<&'a [LangID]>,
     pub manufacturer: Option<&'a [&'a str]>,
     pub product: Option<&'a [&'a str]>,
     pub serial_number: Option<&'a [&'a str]>,
@@ -552,30 +552,21 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             descriptor_type::STRING => match index {
                 // first STRING Request
                 0 => {
-                    if let Some(extra_lang_ids) = config.extra_lang_ids {
-                        let mut lang_id_bytes = [0u8; 32];
+                    let mut lang_id_bytes = [0u8; 32];
 
-                        lang_id_bytes
-                            .chunks_exact_mut(2)
-                            .zip([LangID::EN_US].iter().chain(extra_lang_ids.iter()))
-                            .for_each(|(buffer, lang_id)| {
-                                buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
-                            });
+                    lang_id_bytes
+                        .chunks_exact_mut(2)
+                        .zip(config.lang_ids.unwrap_or(&[LangID::EN_US][..]))
+                        .for_each(|(buffer, lang_id)| {
+                            buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
+                        });
 
-                        accept_writer(xfer, |w| {
-                            w.write(
-                                descriptor_type::STRING,
-                                &lang_id_bytes[0..(1 + extra_lang_ids.len()) * 2],
-                            )
-                        })
-                    } else {
-                        accept_writer(xfer, |w| {
-                            w.write(
-                                descriptor_type::STRING,
-                                &u16::from(LangID::EN_US).to_le_bytes(),
-                            )
-                        })
-                    }
+                    accept_writer(xfer, |w| {
+                        w.write(
+                            descriptor_type::STRING,
+                            &lang_id_bytes[0..(config.lang_ids.map(|l| l.len()).unwrap_or(1) * 2)],
+                        )
+                    })
                 }
 
                 // rest STRING Requests
@@ -595,26 +586,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                                 // for Manufacture, Product and Serial
 
                                 // construct the list of lang_ids full supported by device
-                                let mut lang_id_list: [Option<LangID>; 16] = [None; 16];
-                                match config.extra_lang_ids {
-                                    None => lang_id_list[0] = Some(LangID::EN_US),
-                                    Some(extra_lang_ids) => {
-                                        lang_id_list
-                                            .iter_mut()
-                                            .zip(
-                                                [LangID::EN_US].iter().chain(extra_lang_ids.iter()),
-                                            )
-                                            .for_each(|(item, lang_id)| *item = Some(*lang_id));
-                                    }
-                                };
-
-                                lang_id_list
+                                #[allow(clippy::unnecessary_lazy_evaluations)]
+                                config
+                                    .lang_ids
+                                    .unwrap_or(&[LangID::EN_US][..])
                                     .iter()
-                                    .fuse()
-                                    .position(|list_lang_id| match *list_lang_id {
-                                        Some(list_lang_id) if req_lang_id == list_lang_id => true,
-                                        _ => false,
-                                    })
+                                    .position(|&list_lang_id| req_lang_id == list_lang_id)
                                     .or_else(|| {
                                         // Since we construct the list of full supported lang_ids previously,
                                         // we can safely reject requests which ask for other lang_id.
