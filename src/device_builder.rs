@@ -158,7 +158,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     ///
     /// Default: (none)
     pub fn manufacturer(mut self, manufacturer_ls: &'a [&'a str]) -> Self {
-        if manufacturer_ls.len() == 0 {
+        if manufacturer_ls.is_empty() {
             self.config.manufacturer = None;
             return self;
         }
@@ -192,7 +192,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     ///
     /// Default: (none)
     pub fn product(mut self, product_ls: &'a [&'a str]) -> Self {
-        if product_ls.len() == 0 {
+        if product_ls.is_empty() {
             self.config.product = None;
             return self;
         }
@@ -226,7 +226,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     ///
     /// Default: (none)
     pub fn serial_number(mut self, serial_number_ls: &'a [&'a str]) -> Self {
-        if serial_number_ls.len() == 0 {
+        if serial_number_ls.is_empty() {
             self.config.serial_number = None;
             return self;
         }
