@@ -125,21 +125,19 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         );
 
         [
-            self.config.manufacturer,
-            self.config.product,
-            self.config.serial_number,
+            (self.config.manufacturer, "manufacurer"),
+            (self.config.product, "product"),
+            (self.config.serial_number, "serial_number"),
         ]
         .iter()
-        .zip(["manufacturer", "product", "serial_number"].iter())
+        .filter_map(|(v, name)| v.map(|v| (v, name)))
         .for_each(|(list, field_name)| {
             // do list length check only if user already specify "manufacturer", "product" or "serial_number"
-            if let Some(list) = list {
-                assert!(
-                    lang_ids.len() == list.len(),
-                    "The length of \"lang_id\" list should be equal to \"{}\" list",
-                    field_name
-                )
-            }
+            assert!(
+                lang_ids.len() == list.len(),
+                "The length of \"lang_id\" list should be equal to \"{}\" list",
+                field_name
+            )
         });
 
         self.config.lang_ids = Some(lang_ids);
@@ -158,11 +156,6 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             self.config.manufacturer = None;
             return self;
         }
-
-        assert!(
-            manufacturer_ls.len() <= 16,
-            "Not support more than 16 \"manufacturer\"s"
-        );
 
         let num_extra_langs = self
             .config
@@ -193,11 +186,6 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             return self;
         }
 
-        assert!(
-            product_ls.len() <= 16,
-            "Not support more than 16 \"product\"s"
-        );
-
         let num_langs = self
             .config
             .lang_ids
@@ -226,11 +214,6 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             self.config.serial_number = None;
             return self;
         }
-
-        assert!(
-            serial_number_ls.len() <= 16,
-            "Not support more than 16 \"serial_number\"s"
-        );
 
         let num_langs = self
             .config

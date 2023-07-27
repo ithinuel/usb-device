@@ -1,10 +1,10 @@
 use crate::bus::{InterfaceNumber, PollResult, StringIndex, UsbBus, UsbBusAllocator};
 use crate::class::{ControlIn, ControlOut, UsbClass};
-use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::{descriptor_type, lang_id::LangID, BosWriter, DescriptorWriter};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
+use crate::{control, UsbError};
 use crate::{Result, UsbDirection};
 use core::convert::TryFrom;
 
@@ -552,21 +552,23 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             descriptor_type::STRING => match index {
                 // first STRING Request
                 0 => {
-                    let mut lang_id_bytes = [0u8; 32];
-
-                    lang_id_bytes
-                        .chunks_exact_mut(2)
-                        .zip(config.lang_ids.unwrap_or(&[LangID::EN_US][..]))
-                        .for_each(|(buffer, lang_id)| {
-                            buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
-                        });
-
                     accept_writer(xfer, |w| {
-                        w.write(
-                            descriptor_type::STRING,
-                            &lang_id_bytes[0..(config.lang_ids.map(|l| l.len()).unwrap_or(1) * 2)],
-                        )
-                    })
+                        let lang_ids = config.lang_ids.unwrap_or(&[LangID::EN_US][..]);
+
+                        w.write_with(descriptor_type::STRING, |buf| {
+                            let len = lang_ids.len() * 2;
+                            if len < buf.len() {
+                                Err(UsbError::BufferOverflow)
+                            } else {
+                                buf.chunks_exact_mut(2).zip(lang_ids).for_each(
+                                    |(buffer, lang_id)| {
+                                        buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
+                                    },
+                                );
+                                Ok(len)
+                            }
+                        })
+                    });
                 }
 
                 // rest STRING Requests
